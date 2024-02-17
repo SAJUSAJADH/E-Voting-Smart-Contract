@@ -5,28 +5,28 @@ error Election_NottheElectionAuthority();
 
 contract ElectionFact {
     
-    struct ElectionDet {
+    struct ElectionDetails {
         address deployedAddress;
-        string el_n;
-        string el_d;
+        string election_name;
+        string election_description;
     }
     
-    mapping(string=>ElectionDet) companyEmail;
+    mapping(string=>ElectionDetails) elections;
     
     function createElection(string memory email,string memory election_name, string memory election_description) public{
-        address newElection = address(new Election(msg.sender , election_name, election_description));
+        address newElectionAddress = address(new Election(msg.sender , election_name, election_description));
         
-        companyEmail[email].deployedAddress = newElection;
-        companyEmail[email].el_n = election_name;
-        companyEmail[email].el_d = election_description;
+        elections[email].deployedAddress = newElectionAddress;
+        elections[email].election_name = election_name;
+        elections[email].election_description = election_description;
     }
     
     function getDeployedElection(string memory email) public view returns (address,string memory,string memory) {
-        address val =  companyEmail[email].deployedAddress;
-        if(val == address(0)) 
+        address deployed_election_address =  elections[email].deployedAddress;
+        if(deployed_election_address == address(0)) 
             return (address(0), "", "Create an election.");
         else
-            return (companyEmail[email].deployedAddress,companyEmail[email].el_n,companyEmail[email].el_d);
+            return (elections[email].deployedAddress,elections[email].election_name,elections[email].election_description);
     }
 }
 
@@ -60,7 +60,7 @@ contract Election {
         string candidate_description;
         string imgHash;
         uint8 voteCount;
-        string email;
+        string voterId;
     }
 
     //candidate mapping
@@ -70,7 +70,7 @@ contract Election {
     //voter election_description
 
     struct Voter {
-        uint8 candidate_id_voted;
+        uint8 id_of_voted_Candidate;
         bool voted;
     }
 
@@ -88,18 +88,18 @@ contract Election {
 
     //function to add candidate to mapping
 
-    function addCandidate(string memory candidate_name, string memory candidate_description, string memory imgHash,string memory email) public owner {
+    function addCandidate(string memory candidate_name, string memory candidate_description, string memory imgHash,string memory voterId) public owner {
         uint8 candidateID = numCandidates++; //assign id of the candidate
-        candidates[candidateID] = Candidate(candidate_name,candidate_description,imgHash,0,email); //add the values to the mapping
+        candidates[candidateID] = Candidate(candidate_name,candidate_description,imgHash,0,voterId); //add the values to the mapping
     }
     //function to vote and check for double voting
 
-    function vote(uint8 candidateID,string memory e) public {
+    function vote(uint8 candidateID,string memory voterId) public {
 
         //if false the vote will be registered
-        require(!voters[e].voted, "Error:You cannot double vote");
+        require(!voters[voterId].voted, "Error:You cannot double vote");
         
-        voters[e] = Voter (candidateID,true); //add the values to the mapping
+        voters[voterId] = Voter (candidateID,true); //add the values to the mapping
         numVoters++;
         candidates[candidateID].voteCount++; //increment vote counter of candidate
         
@@ -120,7 +120,7 @@ contract Election {
     //function to get candidate information
 
     function getCandidate(uint8 candidateID) public view returns (string memory, string memory, string memory, uint8,string memory) {
-        return (candidates[candidateID].candidate_name, candidates[candidateID].candidate_description, candidates[candidateID].imgHash, candidates[candidateID].voteCount, candidates[candidateID].email);
+        return (candidates[candidateID].candidate_name, candidates[candidateID].candidate_description, candidates[candidateID].imgHash, candidates[candidateID].voteCount, candidates[candidateID].voterId);
     } 
 
     //function to return winner candidate information
