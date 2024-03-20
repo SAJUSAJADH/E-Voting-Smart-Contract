@@ -11,22 +11,22 @@ contract ElectionFact {
         string election_description;
     }
     
-    mapping(string=>ElectionDetails) elections;
+    mapping(address=>ElectionDetails) elections;
     
-    function createElection(string memory email,string memory election_name, string memory election_description) public{
+    function createElection(address metamask,string memory election_name, string memory election_description) public{
         address newElectionAddress = address(new Election(msg.sender , election_name, election_description));
         
-        elections[email].deployedAddress = newElectionAddress;
-        elections[email].election_name = election_name;
-        elections[email].election_description = election_description;
+        elections[metamask].deployedAddress = newElectionAddress;
+        elections[metamask].election_name = election_name;
+        elections[metamask].election_description = election_description;
     }
     
-    function getDeployedElection(string memory email) public view returns (address,string memory,string memory) {
-        address deployed_election_address =  elections[email].deployedAddress;
+    function getDeployedElection(address metamask) public view returns (address,string memory,string memory) {
+        address deployed_election_address =  elections[metamask].deployedAddress;
         if(deployed_election_address == address(0)) 
             return (address(0), "", "Create an election.");
         else
-            return (elections[email].deployedAddress,elections[email].election_name,elections[email].election_description);
+            return (elections[metamask].deployedAddress,elections[metamask].election_name,elections[metamask].election_description);
     }
 }
 
@@ -46,11 +46,16 @@ contract Election {
         status = true;
     }
 
-    //Only election_authority can call this function
+    //Only election_authority can call this functions
     modifier owner() {
         if(msg.sender != election_authority){
             revert Election_NottheElectionAuthority();
         }
+        _;
+    }
+
+    modifier checkStatus() {
+        require(status, "Error: Election has ended.");
         _;
     }
     //candidate election_description
@@ -76,7 +81,7 @@ contract Election {
 
     //voter mapping
 
-    mapping(string=>Voter) voters;
+    mapping(address=>Voter) voters;
 
     //counter of number of candidates
 
@@ -88,21 +93,26 @@ contract Election {
 
     //function to add candidate to mapping
 
-    function addCandidate(string memory candidate_name, string memory candidate_description, string memory imgHash,string memory voterId) public owner {
+    function addCandidate(string memory candidate_name, string memory candidate_description, string memory imgHash,string memory voterId) public owner checkStatus {
         uint8 candidateID = numCandidates++; //assign id of the candidate
         candidates[candidateID] = Candidate(candidate_name,candidate_description,imgHash,0,voterId); //add the values to the mapping
     }
     //function to vote and check for double voting
 
-    function vote(uint8 candidateID,string memory voterId) public {
+    function vote(uint8 candidateID,address voterAddress) public checkStatus {
 
         //if false the vote will be registered
-        require(!voters[voterId].voted, "Error:You cannot double vote");
+        require(!voters[voterAddress].voted, "Error:You cannot double vote");
         
-        voters[voterId] = Voter (candidateID,true); //add the values to the mapping
+        voters[voterAddress] = Voter (candidateID,true); //add the values to the mapping
         numVoters++;
         candidates[candidateID].voteCount++; //increment vote counter of candidate
         
+    }
+
+    //Close the Election
+    function endElection() public owner checkStatus {
+        status = false;
     }
 
     //function to get count of candidates
@@ -123,18 +133,33 @@ contract Election {
         return (candidates[candidateID].candidate_name, candidates[candidateID].candidate_description, candidates[candidateID].imgHash, candidates[candidateID].voteCount, candidates[candidateID].voterId);
     } 
 
-    //function to return winner candidate information
 
-    function winnerCandidate() public view owner returns (uint8) {
-        uint8 largestVotes = candidates[0].voteCount;
-        uint8 candidateID;
-        for(uint8 i = 1;i<numCandidates;i++) {
+    function getWinners() public view owner returns (uint8[] memory) {
+        uint8 largestVotes = 0;
+        for(uint8 i = 0; i < numCandidates; i++) {
             if(largestVotes < candidates[i].voteCount) {
                 largestVotes = candidates[i].voteCount;
-                candidateID = i;
             }
         }
-        return (candidateID);
+        uint8 numWinners = 0;
+        for(uint8 i = 0; i < numCandidates; i++) {
+            if(candidates[i].voteCount == largestVotes) {
+                numWinners++;
+            }
+        }
+        uint8[] memory winners = new uint8[](numWinners);
+        uint8 index = 0;
+        for(uint8 i = 0; i < numCandidates; i++) {
+            if(candidates[i].voteCount == largestVotes) {
+                winners[index] = i;
+                index++;
+            }
+        }
+        uint8[] memory winnerIds = new uint8[](numWinners);
+        for(uint8 i = 0; i < numWinners; i++) {
+            winnerIds[i] = winners[i];
+        }
+        return winnerIds;
     }
     
     function getElectionDetails() public view returns(string memory, string memory) {
