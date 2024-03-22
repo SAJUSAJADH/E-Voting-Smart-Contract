@@ -2,6 +2,7 @@
 pragma solidity ^0.8.7;
 
 error Election_NottheElectionAuthority();
+error Election_CandidateAlreadyExists();
 
 contract ElectionFact {
     
@@ -53,7 +54,7 @@ contract Election {
         }
         _;
     }
-
+    //Check if election is still active. If not it prevents calling owner functions
     modifier checkStatus() {
         require(status, "Error: Election has ended.");
         _;
@@ -94,9 +95,16 @@ contract Election {
     //function to add candidate to mapping
 
     function addCandidate(string memory candidate_name, string memory candidate_description, string memory imgHash,string memory voterId) public owner checkStatus {
+        for (uint8 i = 0; i < numCandidates; i++) {
+            if (keccak256(abi.encodePacked(candidates[i].voterId)) == keccak256(abi.encodePacked(voterId))) {
+            // candidate already exists, so revert with error
+            revert Election_CandidateAlreadyExists();
+        }
+        }
         uint8 candidateID = numCandidates++; //assign id of the candidate
         candidates[candidateID] = Candidate(candidate_name,candidate_description,imgHash,0,voterId); //add the values to the mapping
     }
+
     //function to vote and check for double voting
 
     function vote(uint8 candidateID,address voterAddress) public checkStatus {
@@ -133,7 +141,7 @@ contract Election {
         return (candidates[candidateID].candidate_name, candidates[candidateID].candidate_description, candidates[candidateID].imgHash, candidates[candidateID].voteCount, candidates[candidateID].voterId);
     } 
 
-
+    //Announce the Winners
     function getWinners() public view owner returns (uint8[] memory) {
         uint8 largestVotes = 0;
         for(uint8 i = 0; i < numCandidates; i++) {
@@ -161,7 +169,7 @@ contract Election {
         }
         return winnerIds;
     }
-    
+    //get election data
     function getElectionDetails() public view returns(string memory, string memory) {
         return (election_name,election_description);    
     }
